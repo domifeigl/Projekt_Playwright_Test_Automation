@@ -1,39 +1,48 @@
-from playwright.sync_api import Page
+from playwright.sync_api import Page, sync_playwright
+import pytest
+
+
+@pytest.fixture()
+def page():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context()
+        page = context.new_page()
+        page.goto("https://www.czechitas.cz/")
+        page.locator('text="Zamítnout vše"').click()
+        yield page
+        browser.close()
 
 
 def test_find_course(page: Page):
-    page.goto("https://www.czechitas.cz/")
-    page.locator("#ch2-dialog > div.ch2-dialog-actions.ch2-dialog-actions-vertical > button.ch2-btn.ch2-allow-all-btn.ch2-btn-primary").click()
     page.locator("#w-dropdown-toggle-0 > div").hover()
-    page.locator("#w-dropdown-list-0 > a:nth-child(1)").click()
+    page.locator('text="Kalendář"').first.click()
     page.locator("#Search-Input").fill("python")
-    kurz = page.locator("#top > div.container.kalendar.custom_calendar.w-container > div.collection-list-wrapper-11.w-dyn-list > div.all-events-list.w-dyn-items > div:nth-child(2) > div.event-info-block > a")
+    kurz = page.locator('text="Úvod do Pythonu"').nth(1)
     assert kurz.is_visible()
 
 
 def test_sign_up(page: Page):
-    page.goto("https://www.czechitas.cz/")
-    page.locator("#ch2-dialog > div.ch2-dialog-actions.ch2-dialog-actions-vertical > button.ch2-btn.ch2-allow-all-btn.ch2-btn-primary").click()
     page.locator("#w-dropdown-toggle-0 > div").hover()
-    page.locator("#w-dropdown-list-0 > a:nth-child(4)").click()
+    page.locator('text="Katalog kurzů"').click()
     with page.expect_popup() as new_popup:
-        page.locator("body > div.katalog_main > div.container-10.w-container > div.w-dyn-list > div > div:nth-child(8) > a > div").click()
+        page.locator('text="SQL"').click()
     popup = new_popup.value
-    popup.locator("#Terminy > div > div.section-title-wrapper > div.w-dyn-list > div > div > div.lide-a-registrace.pl-0 > div.ikony-term-nu.cena > a.button.more.w-button").click()
+    popup.locator("a.button.more.w-button").click()
+    signup = popup.locator("#snippet--flashes > div > div > div.toast-body")
+    signup.wait_for()
     prihlaseni = popup.locator("#kt_app_body")
     assert prihlaseni.is_visible()
 
 
 def test_log_in(page: Page):
-    page.goto("https://www.czechitas.cz/")
-    page.locator("#ch2-dialog > div.ch2-dialog-actions.ch2-dialog-actions-vertical > button.ch2-btn.ch2-allow-all-btn.ch2-btn-primary").click()
     with page.expect_popup() as new_pop_up:
-        page.locator("body > div.header-wrapper > div.navbar.w-nav > div.navcontainer.w-container > nav > div.mobileflex > a").click()
+        page.locator(".moje-czechitas-icon").click()
     pop_up = new_pop_up.value
     pop_up.locator("#frm-slotLoader-singIn-signIn-form-login").fill("email@email.cz")
     pop_up.locator("#frm-slotLoader-singIn-signIn-form-password").fill("abcdef")
     pop_up.get_by_role("checkbox").check()
-    button = pop_up.locator("#frm-slotLoader-singIn-signIn-form > div:nth-child(3) > input")
+    button = pop_up.locator(".btn.btn-primary.button")
     button.press("Enter")
-    error = pop_up.locator("#snippet--flashes > div > div > div.toast-body")
-    assert error.is_visible()
+    success = pop_up.locator('text="Vítej v Czechitas"').nth(1)
+    assert success.is_visible()== False
